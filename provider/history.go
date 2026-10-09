@@ -101,6 +101,14 @@ func localPlayKey(play localPlay) string {
 // the same time to the second comes back NO_CHANGE without being sent again,
 // which keeps redelivered events from writing twice. This is the check the
 // built-in provider made against its full watched read before each export.
+//
+// With the profile's "Log rewatches" setting on, plays that carry a watch
+// time are sent with allow_rewatch=yes, so Simkl records a play of a title
+// the account already finished as a rewatch instead of ignoring it. Simkl
+// merges two watches of the same title less than two days apart, so a
+// redelivered play does not add a second rewatch. A play without a watch time
+// is sent without the flag: Simkl would date it now, and a later redelivery
+// could then count as another rewatch.
 func (s *Server) markWatched(ctx context.Context, acct account, events []*pluginv1.WatchSyncEvent, results map[string]*pluginv1.WatchSyncApplyResult) *pluginv1.WatchSyncFault {
 	plays, needMovies, needEpisodes := playsFromEvents(events, results)
 	if len(plays) == 0 {
@@ -120,7 +128,21 @@ func (s *Server) markWatched(ctx context.Context, acct account, events []*plugin
 		}
 		pending = append(pending, play)
 	}
-	return s.sendHistory(ctx, acct, "/sync/history", pending, true, results)
+	if !acct.trackRewatches {
+		return s.sendHistory(ctx, acct, "/sync/history", pending, true, results)
+	}
+	var timed, untimed []localPlay
+	for _, play := range pending {
+		if play.watchedAt.IsZero() {
+			untimed = append(untimed, play)
+		} else {
+			timed = append(timed, play)
+		}
+	}
+	if fault := s.sendHistory(ctx, acct, "/sync/history?allow_rewatch=yes", timed, true, results); fault != nil {
+		return fault
+	}
+	return s.sendHistory(ctx, acct, "/sync/history", untimed, true, results)
 }
 
 // markUnwatched removes plays from the Simkl history. Simkl clears the title's

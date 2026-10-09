@@ -2,7 +2,7 @@
 
 Connects Silo profiles to [Simkl](https://simkl.com) through Silo's `watch_sync_provider.v1` plugin contract. It replaces the Simkl provider that earlier Silo releases built in, and keeps that provider's behavior so existing connections carry over.
 
-Version 0.3.0 needs a Silo server that supports plugin SDK v0.21, which adds dropped shows, the movie rating hold, and sync warnings to the plugin contract.
+Version 0.4.0 needs a Silo server that supports plugin SDK v0.21, which adds dropped shows, the movie rating hold, and sync warnings to the plugin contract. The **Log rewatches** setting needs a Silo server that supports connection settings from plugin SDK v0.24; an older server does not show it, and rewatches stay off.
 
 ## Capabilities
 
@@ -12,6 +12,7 @@ Version 0.3.0 needs a Silo server that supports plugin SDK v0.21, which adds dro
 - Imports and updates Simkl's plan-to-watch list as the Silo watchlist, for movies and series. Simkl has no favorites list.
 - Syncs dropped shows both ways, anime included. See [Dropped shows](#dropped-shows).
 - Sends live playback start, pause, and stop events.
+- Logs another play of a title the account already watched as a Simkl rewatch, when the profile turns on **Log rewatches**. See [Rewatches](#rewatches).
 - Imports, sends, and clears movie and series ratings. See [Ratings](#ratings).
 - Reports what an import skipped as warnings on the sync: titles Simkl returned without a usable id, ratings it could not prove complete, and titles removed from a Simkl list, which Silo does not import.
 
@@ -34,6 +35,16 @@ Simkl keeps anime in its own lists. A rated anime entry marked as a movie import
 A ratings import reads Simkl's full movie, show, and anime rating lists whenever any of their timestamps moved. Silo treats a rating missing from the read as removed on Simkl only when the read is complete for both movies and series. It is not complete when a rated title has no usable id, or when a rated anime entry does not say whether it is a movie or a series, which Simkl's rating lists usually leave out. While an account has such anime ratings, new and changed ratings still import, but removals on Simkl do not.
 
 Rating a movie on Simkl files it as watched. The plugin therefore asks Silo to hold a movie rating until the profile has watched the movie, as the built-in provider did, and sends it after that. Series ratings and rating removals of both kinds are sent right away.
+
+## Rewatches
+
+Simkl ignores a new play of a movie or episode the account already watched, unless the request asks for a rewatch. Each Silo profile chooses with the **Log rewatches** switch on its Simkl connection, which is off by default, as Simkl asks of every app. When it is on, the plugin sends exported plays with `allow_rewatch=yes`, and Simkl records a play of a title the account already finished as a rewatch with its own date.
+
+- Rewatches are a Simkl PRO and VIP feature. On a free account Simkl records the first watch of a title as usual and nothing for later plays.
+- Rewatches travel with exported plays, so **Send watched changes** must be on as well. Live playback events do not carry the flag: Simkl warns that a flag on a playback start can log a rewatch of whatever played before.
+- Simkl merges two watches of the same movie or episode less than two days apart into one, so a play Silo sends again does not add a second rewatch.
+- A play without a watch time is sent without the flag, because Simkl would date it at the time it arrives.
+- Imports still bring in one play per title. Reading rewatch sessions back from Simkl is not supported yet.
 
 ## Dropped shows
 

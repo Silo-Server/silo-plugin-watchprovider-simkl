@@ -89,6 +89,8 @@ func newSimklClient(httpClient *http.Client, baseURL string) *simklClient {
 type account struct {
 	clientID string
 	token    string
+	// trackRewatches is the profile's "Log rewatches" connection setting.
+	trackRewatches bool
 }
 
 // get reads path into out.

@@ -1,6 +1,6 @@
 {
   "plugin_id": "silo.watchprovider.simkl",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "checksum": "__CHECKSUM__",
   "silo_api_version": "v1",
   "supported_platforms": [
@@ -62,7 +62,16 @@
           "WATCH_SYNC_MEDIA_TYPE_SERIES"
         ],
         "external_id_namespaces": ["imdb", "tmdb", "tvdb"],
-        "max_batch_size": 100
+        "max_batch_size": 100,
+        "connection_settings": [
+          {
+            "key": "track_rewatches",
+            "label": "Log rewatches",
+            "description": "Send another play of a title you already watched to Simkl as a rewatch. Needs Simkl PRO or VIP and Send watched changes; a free account records nothing extra.",
+            "type": "WATCH_SYNC_CONNECTION_SETTING_TYPE_BOOLEAN",
+            "default_value": false
+          }
+        ]
       }
     }
   ],

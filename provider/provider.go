@@ -18,6 +18,10 @@ const (
 	configClientID   = "app.client_id"
 	configV2ClientID = "app.v2_client_id"
 
+	// settingTrackRewatches is the connection setting that sends repeat plays
+	// to Simkl as rewatches. It is off unless the profile turns it on.
+	settingTrackRewatches = "track_rewatches"
+
 	// The host cancels every RPC after two minutes. Upstream work stops this
 	// long before that, so the plugin can still answer with a fault the host
 	// understands instead of the call timing out.
@@ -210,7 +214,11 @@ func (s *Server) authenticate(auth *pluginv1.WatchSyncAuthenticatedContext) (acc
 			SafeMessage: "Simkl access token is missing; reconnect Simkl",
 		}
 	}
-	return account{clientID: apps.clientIDFor(auth.GetCredentials()), token: token}, nil
+	return account{
+		clientID:       apps.clientIDFor(auth.GetCredentials()),
+		token:          token,
+		trackRewatches: auth.GetConnectionSettings()[settingTrackRewatches] == "true",
+	}, nil
 }
 
 // simklApps holds the client IDs of the admin's Simkl API apps. Simkl ties a

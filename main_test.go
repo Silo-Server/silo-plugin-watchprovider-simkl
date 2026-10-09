@@ -13,7 +13,7 @@ func TestManifestDeclaresTheSimklProvider(t *testing.T) {
 	if err != nil {
 		t.Fatalf("load manifest: %v", err)
 	}
-	if parsed.GetPluginId() != "silo.watchprovider.simkl" || parsed.GetVersion() != "0.3.0" {
+	if parsed.GetPluginId() != "silo.watchprovider.simkl" || parsed.GetVersion() != "0.4.0" {
 		t.Fatalf("plugin = %q %q", parsed.GetPluginId(), parsed.GetVersion())
 	}
 	capabilities := parsed.GetCapabilities()
@@ -83,5 +83,20 @@ func TestManifestAsksForPublicClientIDsOnly(t *testing.T) {
 		fields[0].GetKey() != "client_id" || fields[0].GetSecret() || !fields[0].GetRequired() ||
 		fields[1].GetKey() != "v2_client_id" || fields[1].GetSecret() || fields[1].GetRequired() {
 		t.Fatalf("fields = %v, want a required client_id and an optional v2_client_id, both public", fields)
+	}
+}
+
+func TestManifestDeclaresTheRewatchSetting(t *testing.T) {
+	t.Parallel()
+	parsed, err := manifest.Load(manifestJSON)
+	if err != nil {
+		t.Fatalf("load manifest: %v", err)
+	}
+	// Rewatch tracking is off until the profile turns it on, as Simkl asks.
+	settings := parsed.GetCapabilities()[0].GetWatchSyncProvider().GetConnectionSettings()
+	if len(settings) != 1 || settings[0].GetKey() != "track_rewatches" || settings[0].GetLabel() != "Log rewatches" ||
+		settings[0].GetType() != pluginv1.WatchSyncConnectionSettingType_WATCH_SYNC_CONNECTION_SETTING_TYPE_BOOLEAN ||
+		settings[0].GetDefaultValue().GetBoolValue() {
+		t.Fatalf("connection settings = %v, want an off-by-default track_rewatches switch", settings)
 	}
 }

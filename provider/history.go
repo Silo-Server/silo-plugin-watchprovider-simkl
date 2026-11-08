@@ -120,7 +120,7 @@ func (s *Server) markWatched(ctx context.Context, acct account, events []*plugin
 	}
 	pending := make([]localPlay, 0, len(plays))
 	for _, play := range plays {
-		key := remotePlayKey(play.providerItemKey, play.watchedAt)
+		key := remotePlayKey(play.kind, play.providerItemKey, play.watchedAt)
 		if !play.watchedAt.IsZero() && remote[key] > 0 {
 			remote[key]--
 			results[play.eventID] = noChange(play.eventID)
@@ -197,14 +197,17 @@ func (s *Server) remotePlays(ctx context.Context, acct account, movies, episodes
 			if watchedAt == nil {
 				continue
 			}
-			counts[remotePlayKey(state.GetProviderItemKey(), watchedAt.AsTime())]++
+			counts[remotePlayKey(state.GetMedia().GetMediaType(), state.GetProviderItemKey(), watchedAt.AsTime())]++
 		}
 	}
 	return counts, nil
 }
 
-func remotePlayKey(providerItemKey string, watchedAt time.Time) string {
-	return providerItemKey + "|" + watchedAt.UTC().Truncate(historyTimePrecision).Format(time.RFC3339)
+// remotePlayKey identifies a play by kind, key, and time. The kind is part of
+// it because a movie and an episode can share a key: TMDB and TVDB number them
+// separately.
+func remotePlayKey(kind pluginv1.WatchSyncMediaType, providerItemKey string, watchedAt time.Time) string {
+	return kind.String() + "|" + providerItemKey + "|" + watchedAt.UTC().Truncate(historyTimePrecision).Format(time.RFC3339)
 }
 
 // sendHistory posts plays and maps Simkl's not_found echo back to them.

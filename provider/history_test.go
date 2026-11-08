@@ -220,6 +220,24 @@ func TestMarkWatchedSkipsAnAnimeMovieSimklAlreadyHas(t *testing.T) {
 	}
 }
 
+// A movie and an episode can share a key (TMDB and TVDB number them
+// separately), so a play Simkl holds for one never stands in for the other.
+func TestMarkWatchedKeepsMoviesAndEpisodesWithOneKeyApart(t *testing.T) {
+	at := time.Date(2026, 5, 4, 13, 0, 0, 0, time.UTC)
+	fake := &historyFake{t: t, anime: []map[string]any{{
+		"status": "completed", "anime_type": "movie", "last_watched_at": at.Format(time.RFC3339),
+		"show": map[string]any{"title": "A movie", "ids": map[string]any{"tvdb": 67890}},
+	}}}
+	server, _ := newTestServer(t, fake)
+	response := applyEvents(t, server, episodePlay("episode", at))
+	if got := resultsByID(response)["episode"].GetStatus(); got != pluginv1.WatchSyncApplyStatus_WATCH_SYNC_APPLY_STATUS_APPLIED {
+		t.Fatalf("status = %v, want the episode sent", got)
+	}
+	if len(fake.writes) != 1 {
+		t.Fatalf("writes = %#v, want the episode", fake.writes)
+	}
+}
+
 func TestRedeliveredMarkWatchedDoesNotWriteTwice(t *testing.T) {
 	fake := &historyFake{t: t}
 	server, _ := newTestServer(t, fake)

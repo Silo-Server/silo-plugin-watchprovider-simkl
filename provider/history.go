@@ -176,8 +176,10 @@ func playsFromEvents(events []*pluginv1.WatchSyncEvent, results map[string]*plug
 func (s *Server) remotePlays(ctx context.Context, acct account, movies, episodes bool) (map[string]int, *pluginv1.WatchSyncFault) {
 	counts := make(map[string]int)
 	for _, bucket := range watchedBuckets(simklActivities{}) {
-		isMovies := bucket.cursorKey == cursorInboundMoviesCompleted
-		if (isMovies && !movies) || (!isMovies && !episodes) {
+		// The anime completed list holds anime movies as well as episodes.
+		holdsMovies := bucket.cursorKey == cursorInboundMoviesCompleted || bucket.cursorKey == cursorInboundAnimeCompleted
+		holdsEpisodes := bucket.cursorKey != cursorInboundMoviesCompleted
+		if (!movies || !holdsMovies) && (!episodes || !holdsEpisodes) {
 			continue
 		}
 		var payload simklAllItemsResponse
@@ -186,6 +188,11 @@ func (s *Server) remotePlays(ctx context.Context, acct account, movies, episodes
 		}
 		states, _ := watchedStatesFromAllItems(payload, bucket.allowShowTimestampFallback)
 		for _, state := range states {
+			// A finished series is no play of its own, and its key could
+			// equal an episode's (both can be tvdb:<n>).
+			if state.GetMedia().GetMediaType() == pluginv1.WatchSyncMediaType_WATCH_SYNC_MEDIA_TYPE_SERIES {
+				continue
+			}
 			watchedAt := state.GetWatched().GetLastWatchedAt()
 			if watchedAt == nil {
 				continue

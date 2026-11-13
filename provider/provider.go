@@ -11,6 +11,7 @@ import (
 	"time"
 
 	pluginv1 "github.com/Silo-Server/silo-plugin-sdk/pkg/pluginproto/silo/plugin/v1"
+	"github.com/hashicorp/go-hclog"
 )
 
 const (
@@ -36,6 +37,9 @@ type Server struct {
 	now   func() time.Time
 	// carryBudget bounds the rows a page token carries; see paging.go.
 	carryBudget int
+	// log receives the provider's diagnostics. It discards them until
+	// SetLogger names a destination.
+	log hclog.Logger
 }
 
 // NewServer returns a Simkl provider that sends requests with httpClient, or
@@ -45,7 +49,17 @@ func NewServer(httpClient *http.Client) *Server {
 }
 
 func newServer(httpClient *http.Client, baseURL string) *Server {
-	return &Server{simkl: newSimklClient(httpClient, baseURL), now: time.Now, carryBudget: carryBudgetBytes}
+	return &Server{simkl: newSimklClient(httpClient, baseURL), now: time.Now, carryBudget: carryBudgetBytes, log: hclog.NewNullLogger()}
+}
+
+// SetLogger sends the provider's diagnostics to logger, or discards them when
+// logger is nil. Silo shows a plugin's log lines only when they arrive on
+// stderr in hclog's JSON format; see main.go.
+func (s *Server) SetLogger(logger hclog.Logger) {
+	if logger == nil {
+		logger = hclog.NewNullLogger()
+	}
+	s.log = logger
 }
 
 // DeviceAuthorization returns the WatchSyncDeviceAuthorizationService for

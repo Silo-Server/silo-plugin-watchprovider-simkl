@@ -12,6 +12,7 @@ Version 0.4.0 needs a Silo server that supports plugin SDK v0.21, which adds dro
 - Imports and updates Simkl's plan-to-watch list as the Silo watchlist, for movies and series. Simkl has no favorites list.
 - Syncs dropped shows both ways, anime included. See [Dropped shows](#dropped-shows).
 - Sends live playback start, pause, and stop events.
+- Logs the outcome of each playback event to Silo's server log: accepted events at info, and failures, such as an item Simkl cannot match, at warn. Each line names the playback session, the media item, and the IDs sent, so the log records what each profile watched. Titles and credentials are not logged.
 - Logs another play of a title the account already watched as a Simkl rewatch, when the profile turns on **Log rewatches**. See [Rewatches](#rewatches).
 - Imports, sends, and clears movie and series ratings. See [Ratings](#ratings).
 - Reports what an import skipped as warnings on the sync: titles Simkl returned without a usable id, ratings it could not prove complete, and titles removed from a Simkl list, which Silo does not import.

@@ -84,6 +84,80 @@ func TestScrobbleSendsEpisodeAndMoviePayloads(t *testing.T) {
 	}
 }
 
+// An episode with only TMDB IDs that Simkl may not map: the title and year
+// give Simkl something to match on.
+func TestScrobbleSendsTitlesAndYearsForSimklToFallBackOn(t *testing.T) {
+	server, requests := recordingServer(t, http.StatusCreated, `{}`)
+	episode := &pluginv1.WatchSyncEvent{
+		EventId:         "episode",
+		Operation:       pluginv1.WatchSyncOperation_WATCH_SYNC_OPERATION_SCROBBLE_STOP,
+		PositionSeconds: 2700,
+		DurationSeconds: 2700,
+		Completed:       true,
+		Media: &pluginv1.WatchSyncMedia{
+			MediaType:         mediaEpisode,
+			Title:             "Pilot",
+			Year:              2003,
+			ExternalIds:       map[string]string{"tmdb": "900001"},
+			SeriesTitle:       " Example Show ",
+			SeriesYear:        2003,
+			SeriesExternalIds: map[string]string{"tmdb": "900002"},
+			SeasonNumber:      1,
+			EpisodeNumber:     1,
+		},
+	}
+	movie := &pluginv1.WatchSyncEvent{
+		EventId:         "movie",
+		Operation:       pluginv1.WatchSyncOperation_WATCH_SYNC_OPERATION_SCROBBLE_START,
+		DurationSeconds: 6000,
+		Media: &pluginv1.WatchSyncMedia{
+			MediaType: pluginv1.WatchSyncMediaType_WATCH_SYNC_MEDIA_TYPE_MOVIE,
+			Title:     "Inception",
+			Year:      2010,
+		},
+	}
+	applyEvents(t, server, episode, movie)
+	if len(*requests) != 2 {
+		t.Fatalf("requests = %v", *requests)
+	}
+	wantEpisode := map[string]any{
+		"progress": float64(100),
+		"show":     map[string]any{"title": "Example Show", "year": float64(2003), "ids": map[string]any{"tmdb": float64(900002)}},
+		"episode":  map[string]any{"season": float64(1), "number": float64(1), "ids": map[string]any{"tmdb": float64(900001)}},
+	}
+	if got := (*requests)[0].body; !reflect.DeepEqual(got, wantEpisode) {
+		t.Fatalf("episode payload = %#v, want %#v", got, wantEpisode)
+	}
+	// A movie without IDs leaves the ids object out, so Simkl matches on
+	// title and year rather than on an empty set of IDs.
+	wantMovie := map[string]any{"progress": float64(0), "movie": map[string]any{"title": "Inception", "year": float64(2010)}}
+	if got := (*requests)[1].body; !reflect.DeepEqual(got, wantMovie) {
+		t.Fatalf("movie payload = %#v, want %#v", got, wantMovie)
+	}
+}
+
+// Without a year Simkl would match the title alone, so the title stays out.
+func TestScrobbleLeavesOutATitleWithoutAYear(t *testing.T) {
+	server, requests := recordingServer(t, http.StatusCreated, `{}`)
+	event := &pluginv1.WatchSyncEvent{
+		EventId:         "episode",
+		Operation:       pluginv1.WatchSyncOperation_WATCH_SYNC_OPERATION_SCROBBLE_START,
+		DurationSeconds: 3000,
+		Media: &pluginv1.WatchSyncMedia{
+			MediaType:         mediaEpisode,
+			SeriesTitle:       "Example Show",
+			SeriesExternalIds: map[string]string{"tvdb": "81189"},
+			SeasonNumber:      1,
+			EpisodeNumber:     2,
+		},
+	}
+	applyEvents(t, server, event)
+	want := map[string]any{"ids": map[string]any{"tvdb": float64(81189)}}
+	if len(*requests) != 1 || !reflect.DeepEqual((*requests)[0].body["show"], want) {
+		t.Fatalf("requests = %+v, want show %#v", *requests, want)
+	}
+}
+
 func TestStopTreatsCompletedConflictAsNoChange(t *testing.T) {
 	server, _ := recordingServer(t, http.StatusConflict, `{"error":"already_watched"}`)
 	stop := scrobbleStart()
